@@ -54,9 +54,33 @@ namespace ProcessingModule
         /// <summary>
         /// Acquisitor thread logic.
         /// </summary>
-		private void Acquisition_DoWork()
-		{
-            //TO DO: IMPLEMENT
+        private void Acquisition_DoWork()
+        {
+            ushort transactionId = 0;
+            byte unitId = 1; // isto kao STA 1 iz configa
+
+            while (true)
+            {
+                acquisitionTrigger.WaitOne();
+
+                try
+                {
+                    foreach (var item in configuration.GetConfigurationItems())
+                    {
+                        processingManager.ExecuteReadCommand(
+                            item,
+                            transactionId++,
+                            unitId,
+                            item.StartAddress,
+                            (ushort)item.NumberOfRegisters
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    stateUpdater.LogMessage($"Acquisition error: {ex.Message}");
+                }
+            }
         }
 
         #endregion Private Methods

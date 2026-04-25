@@ -179,7 +179,8 @@ namespace dCom.ViewModel
 			{
 				rawValue = value;
 				OnPropertyChanged("RawValue");
-			}
+                OnPropertyChanged("DisplayValue");
+            }
 		}
 
         public IConfigItem ConfigItem

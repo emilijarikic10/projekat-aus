@@ -46,13 +46,16 @@ namespace Modbus.Connection
 
         /// <inheritdoc />
         public void EnqueueCommand(IModbusFunction commandToExecute)
-		{
-			if (this.connectionState == ConnectionState.CONNECTED)
-			{
-				this.commandQueue.Enqueue(commandToExecute);
-				this.processConnection.Set();
-			}
-		}
+        {
+            if (this.connectionState != ConnectionState.CONNECTED)
+            {
+                stateUpdater.LogMessage("WRITE BLOCKED: NOT CONNECTED");
+                return;
+            }
+
+            this.commandQueue.Enqueue(commandToExecute);
+            this.processConnection.Set();
+        }
 
         /// <summary>
         /// Invokes the update point event after the response is parsed.
@@ -90,7 +93,10 @@ namespace Modbus.Connection
 							{
 								this.connectionState = ConnectionState.CONNECTED;
 								this.stateUpdater.UpdateConnectionState(this.connectionState);
-								numberOfConnectionRetries = 0;
+
+                                stateUpdater.LogMessage("CONNECTED IN EXECUTOR");
+
+                                numberOfConnectionRetries = 0;
 								break;
 							}
 							else

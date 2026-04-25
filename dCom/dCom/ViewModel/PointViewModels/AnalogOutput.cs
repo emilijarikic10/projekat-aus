@@ -18,6 +18,7 @@ namespace dCom.ViewModel
 
         protected override void WriteCommand_Execute(object obj)
         {
+           
             try
             {
                 this.processingManager.ExecuteWriteCommand(ConfigItem, configuration.GetTransactionId(), configuration.UnitAddress, address, (int)CommandedValue);
