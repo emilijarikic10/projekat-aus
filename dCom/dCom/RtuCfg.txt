@@ -1,4 +1,4 @@
-STA 158
+STA 74
 TCP 43676
 
 DO_REG  1 3400   0  0   1     0  DO  @STOP #
