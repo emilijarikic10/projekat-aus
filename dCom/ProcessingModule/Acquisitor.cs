@@ -56,30 +56,39 @@ namespace ProcessingModule
         /// </summary>
         private void Acquisition_DoWork()
         {
-            ushort transactionId = 0;
-            byte unitId = 1; // isto kao STA 1 iz configa
+            ushort counter = 0;
 
             while (true)
             {
                 acquisitionTrigger.WaitOne();
 
-                try
+                foreach (IConfigItem item in configuration.GetConfigurationItems())
                 {
-                    foreach (var item in configuration.GetConfigurationItems())
+                    // analogne (3100 i 1500) - svake 3 sekunde
+                    if ((item.StartAddress == 3100 || item.StartAddress == 1500) && counter % 3 == 0)
                     {
                         processingManager.ExecuteReadCommand(
                             item,
-                            transactionId++,
-                            unitId,
+                            counter,
+                            99,
                             item.StartAddress,
-                            (ushort)item.NumberOfRegisters
+                            item.NumberOfRegisters
+                        );
+                    }
+                    // digitalne (3400, 3402, 3405, 3406) - svake 4 sekunde
+                    else if ((item.StartAddress == 3400 || item.StartAddress == 3402 || item.StartAddress == 3405 || item.StartAddress == 3406) && counter % 4 == 0)
+                    {
+                        processingManager.ExecuteReadCommand(
+                            item,
+                            counter,
+                            99,
+                            item.StartAddress,
+                            item.NumberOfRegisters
                         );
                     }
                 }
-                catch (Exception ex)
-                {
-                    stateUpdater.LogMessage($"Acquisition error: {ex.Message}");
-                }
+
+                counter++;
             }
         }
 

@@ -47,15 +47,13 @@ namespace Modbus.Connection
         /// <inheritdoc />
         public void EnqueueCommand(IModbusFunction commandToExecute)
         {
-            if (this.connectionState != ConnectionState.CONNECTED)
+            if (this.connectionState == ConnectionState.CONNECTED)
             {
-                stateUpdater.LogMessage("WRITE BLOCKED: NOT CONNECTED");
-                return;
+                this.commandQueue.Enqueue(commandToExecute);
+                this.processConnection.Set();
             }
-
-            this.commandQueue.Enqueue(commandToExecute);
-            this.processConnection.Set();
         }
+
 
         /// <summary>
         /// Invokes the update point event after the response is parsed.
@@ -78,81 +76,78 @@ namespace Modbus.Connection
         /// Logic for handling the connection.
         /// </summary>
 		private void ConnectionProcessorThread()
-		{
-			while (this.threadCancellationSignal)
-			{
-				try
-				{
-					if (this.connectionState == ConnectionState.DISCONNECTED)
-					{
-						numberOfConnectionRetries = 0;
-						this.connection.Connect();
-						while (numberOfConnectionRetries < 10)
-						{
-							if (this.connection.CheckState())
-							{
-								this.connectionState = ConnectionState.CONNECTED;
-								this.stateUpdater.UpdateConnectionState(this.connectionState);
-
-                                stateUpdater.LogMessage("CONNECTED IN EXECUTOR");
-
+        {
+            while (this.threadCancellationSignal)
+            {
+                try
+                {
+                    if (this.connectionState == ConnectionState.DISCONNECTED)
+                    {
+                        numberOfConnectionRetries = 0;
+                        this.connection.Connect();
+                        while (numberOfConnectionRetries < 10)
+                        {
+                            if (this.connection.CheckState())
+                            {
+                                this.connectionState = ConnectionState.CONNECTED;
+                                this.stateUpdater.UpdateConnectionState(this.connectionState);
                                 numberOfConnectionRetries = 0;
-								break;
-							}
-							else
-							{
-								numberOfConnectionRetries++;
-								if (numberOfConnectionRetries == 10)
-								{
-									this.connection.Disconnect();
-									this.connectionState = ConnectionState.DISCONNECTED;
-									this.stateUpdater.UpdateConnectionState(this.connectionState);
-								}
-							}
-						}
-					}
-					else
-					{
-						processConnection.WaitOne();
-						while (commandQueue.TryDequeue(out currentCommand))
-						{
-							this.connection.SendBytes(this.currentCommand.PackRequest());
-							byte[] message;
-							byte[] header = this.connection.RecvBytes(7);
-							int payLoadSize = 0;
-							unchecked
-							{
-								payLoadSize = IPAddress.NetworkToHostOrder((short)BitConverter.ToUInt16(header, 4));
-							}
-							byte[] payload = this.connection.RecvBytes(payLoadSize - 1);
-							message = new byte[header.Length + payload.Length];
-							Buffer.BlockCopy(header, 0, message, 0, 7);
-							Buffer.BlockCopy(payload, 0, message, 7, payload.Length);
-							this.HandleReceivedBytes(message);
-							this.currentCommand = null;
-						}
-					}
-				}
-				catch (SocketException se)
-				{
-					if (se.ErrorCode != 10054)
-					{
-						throw se;
-					}
-					currentCommand = null;
-					this.connectionState = ConnectionState.DISCONNECTED;
-					this.stateUpdater.UpdateConnectionState(ConnectionState.DISCONNECTED);
-					string message = $"{se.TargetSite.ReflectedType.Name}.{se.TargetSite.Name}: {se.Message}";
-					stateUpdater.LogMessage(message);
-				}
-				catch (Exception ex)
-				{
-					string message = $"{ex.TargetSite.ReflectedType.Name}.{ex.TargetSite.Name}: {ex.Message}";
-					stateUpdater.LogMessage(message);
-					currentCommand = null;
-				}
-			}
-		}
+                                break;
+                            }
+                            else
+                            {
+                                numberOfConnectionRetries++;
+                                if (numberOfConnectionRetries == 10)
+                                {
+                                    this.connection.Disconnect();
+                                    this.connectionState = ConnectionState.DISCONNECTED;
+                                    this.stateUpdater.UpdateConnectionState(this.connectionState);
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        processConnection.WaitOne();
+                        while (commandQueue.TryDequeue(out currentCommand))
+                        {
+                            this.connection.SendBytes(this.currentCommand.PackRequest());
+                            byte[] message;
+                            byte[] header = this.connection.RecvBytes(7);
+                            int payLoadSize = 0;
+                            unchecked
+                            {
+                                payLoadSize = IPAddress.NetworkToHostOrder((short)BitConverter.ToUInt16(header, 4));
+                            }
+                            byte[] payload = this.connection.RecvBytes(payLoadSize - 1);
+                            message = new byte[header.Length + payload.Length];
+                            Buffer.BlockCopy(header, 0, message, 0, 7);
+                            Buffer.BlockCopy(payload, 0, message, 7, payload.Length);
+                            this.HandleReceivedBytes(message);
+                            this.currentCommand = null;
+                        }
+                    }
+                }
+                catch (SocketException se)
+                {
+                    if (se.ErrorCode != 10054)
+                    {
+                        throw se;
+                    }
+                    currentCommand = null;
+                    this.connectionState = ConnectionState.DISCONNECTED;
+                    this.stateUpdater.UpdateConnectionState(ConnectionState.DISCONNECTED);
+                    string message = $"{se.TargetSite.ReflectedType.Name}.{se.TargetSite.Name}: {se.Message}";
+                    stateUpdater.LogMessage(message);
+                }
+                catch (Exception ex)
+                {
+                    string message = $"{ex.TargetSite.ReflectedType.Name}.{ex.TargetSite.Name}: {ex.Message}";
+                    stateUpdater.LogMessage(message);
+                    currentCommand = null;
+                }
+            }
+        }
 
         /// <inheritdoc />
         public void Dispose()
